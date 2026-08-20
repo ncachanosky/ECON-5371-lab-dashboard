@@ -2,10 +2,14 @@
 title: "ECON-5371 Project Dashboard"
 subtitle: "Reference example — Vector Autoregression"
 author: "Your Name"
-format: dashboard
+format:
+  dashboard:
+    theme: [cosmo, dashboard-theme.scss]
 ---
 
-## Row {height=20%}
+# Overview
+
+## Row {height=15%}
 
 ```{python}
 #| content: valuebox
@@ -30,19 +34,21 @@ dict(value=len(df))
 #| title: "Date Range"
 #| icon: clock-history
 #| color: secondary
-dict(value=f"{df['date'].min().year}–{df['date'].max().year}")
+start_yr = df['date'].min().strftime('%Y')
+end_yr = df['date'].max().strftime('%Y')
+dict(value=f"'{start_yr[2:]}–'{end_yr[2:]}")
 ```
 
 ```{python}
 #| content: valuebox
 #| title: "Variables"
 #| icon: bar-chart-line
-#| color: info
+#| color: "#FF8200"
 variables = ["output_gap", "inflation", "policy_rate"]
 dict(value=len(variables))
 ```
 
-## Row {height=80%}
+## Row {height=55%}
 
 ```{python}
 #| title: "Output Gap, Inflation, and Policy Rate"
@@ -58,5 +64,93 @@ for var in variables:
     ax.plot(df["date"], df[var], label=var, color=colors[var], linewidth=1.2)
 ax.legend(loc="upper left", frameon=False)
 ax.set_xlim(df["date"].min(), df["date"].max())
+plt.show()
+```
+
+## Row {height=30%}
+
+### Column {width=60%}
+
+```{python}
+#| title: "Stationarity (ADF Test)"
+from statsmodels.tsa.stattools import adfuller
+from tabulate import tabulate
+from IPython.display import Markdown
+
+rows = []
+for var in variables:
+    result = adfuller(df[var], autolag="AIC")
+    verdict = "Stationary" if result[1] < 0.05 else "Unit root"
+    rows.append([var, f"{result[0]:.3f}", f"{result[1]:.4f}", verdict])
+
+adf_table = pd.DataFrame(rows, columns=["Variable", "ADF Stat", "p-value", "Result"])
+Markdown(tabulate(adf_table, showindex=False, headers=adf_table.columns))
+```
+
+### Column {width=40%}
+
+```{python}
+#| content: valuebox
+#| title: "Chosen Lag Order"
+#| icon: list-ol
+#| color: secondary
+dict(value=2)
+```
+
+```{python}
+#| content: valuebox
+#| title: "Max Eigenvalue Modulus"
+#| icon: shield-check
+#| color: "#FF8200"
+dict(value="0.881")
+```
+
+# Model Results
+
+## Row {.tabset height=100%}
+
+### Granger Causality
+
+```{python}
+from statsmodels.tsa.api import VAR
+from statsmodels.stats.diagnostic import acorr_ljungbox
+
+model = VAR(df.set_index("date")[variables])
+fit = model.fit(2)
+
+rows = []
+for cause in variables:
+    for effect in variables:
+        if cause == effect:
+            continue
+        test = fit.test_causality(effect, [cause], kind="f")
+        verdict = "Causes" if test.pvalue < 0.05 else "No evidence"
+        rows.append([cause, effect, f"{test.test_statistic:.2f}", f"{test.pvalue:.4f}", verdict])
+
+granger_table = pd.DataFrame(rows, columns=["Cause", "Effect", "F-stat", "p-value", "Result"])
+Markdown(tabulate(granger_table, showindex=False, headers=granger_table.columns))
+```
+
+### Impulse Responses
+
+```{ojs}
+viewof shock_choice = Inputs.select(
+  ["output_gap", "inflation", "policy_rate"],
+  {label: "Shock to:", value: "output_gap"}
+)
+```
+
+```{ojs}
+html`<img src="images/irf_${shock_choice}.png" style="width: 100%;">`
+```
+
+### Variance Decomposition
+
+```{python}
+plt.rcParams['figure.figsize'] = (11, 9)
+
+fevd = fit.fevd(12)
+fig = fevd.plot()
+plt.tight_layout()
 plt.show()
 ```
