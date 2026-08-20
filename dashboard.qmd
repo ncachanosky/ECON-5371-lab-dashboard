@@ -1,0 +1,62 @@
+---
+title: "ECON-5371 Project Dashboard"
+subtitle: "Reference example — Vector Autoregression"
+author: "Your Name"
+format: dashboard
+---
+
+## Row {height=20%}
+
+```{python}
+#| content: valuebox
+#| title: "Observations"
+#| icon: calendar3
+#| color: primary
+import pandas as pd
+
+# Data lives in its own data/ subfolder, separate from code -- a habit
+# worth keeping as this repo grows. Use forward slashes in the path,
+# even on Windows: Python/pandas accept them on every OS, so the same
+# code runs unchanged whether you're on Windows, Mac, or Linux. A
+# single backslash (data\file.csv) is NOT safe here -- Python reads
+# backslashes as escape characters inside a string, which can silently
+# produce the wrong path.
+df = pd.read_csv("data/macro_var_synthetic.csv", parse_dates=["date"])
+dict(value=len(df))
+```
+
+```{python}
+#| content: valuebox
+#| title: "Date Range"
+#| icon: clock-history
+#| color: secondary
+dict(value=f"{df['date'].min().year}–{df['date'].max().year}")
+```
+
+```{python}
+#| content: valuebox
+#| title: "Variables"
+#| icon: bar-chart-line
+#| color: info
+variables = ["output_gap", "inflation", "policy_rate"]
+dict(value=len(variables))
+```
+
+## Row {height=80%}
+
+```{python}
+#| title: "Output Gap, Inflation, and Policy Rate"
+import matplotlib.pyplot as plt
+
+plt.rcParams['figure.figsize'] = (11, 4)
+
+tab10 = plt.get_cmap("tab10")
+colors = {"output_gap": tab10(0), "inflation": tab10(1), "policy_rate": tab10(2)}
+
+fig, ax = plt.subplots()
+for var in variables:
+    ax.plot(df["date"], df[var], label=var, color=colors[var], linewidth=1.2)
+ax.legend(loc="upper left", frameon=False)
+ax.set_xlim(df["date"].min(), df["date"].max())
+plt.show()
+```
